@@ -88,6 +88,7 @@ Also, two new endpoints are added to this namespace.
 | ------------------------------------- | --------- |
 | */wp-json/jwt-auth/v1/token*          | POST      |
 | */wp-json/jwt-auth/v1/token/validate* | POST      |
+| */wp-json/jwt-auth/v1/token/refresh* | POST      |
 
 ## Usage
 ### /wp-json/jwt-auth/v1/token
