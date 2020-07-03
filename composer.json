@@ -1,5 +1,5 @@
 {
-  "name": "tmeister/wp-api-jwt-auth",
+  "name": "codelight-eu/wp-api-jwt-auth",
   "description": "A simple plugin to add JSON Web Token (JWT) Authentication to WP REST API.",
   "homepage": "https://github.com/Tmeister/wp-api-jwt-auth/",
   "type": "wordpress-plugin",
