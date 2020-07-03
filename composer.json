@@ -1,7 +1,7 @@
 {
   "name": "codelight-eu/wp-api-jwt-auth",
   "description": "A simple plugin to add JSON Web Token (JWT) Authentication to WP REST API.",
-  "homepage": "https://github.com/Tmeister/wp-api-jwt-auth/",
+  "homepage": "https://github.com/codelight-eu/wp-api-jwt-auth",
   "type": "wordpress-plugin",
   "license": "GPL-2.0+",
   "authors": [
@@ -13,9 +13,6 @@
   "support": {
       "issues": "https://github.com/Tmeister/wp-api-jwt-auth/issues",
       "source": "https://github.com/Tmeister/wp-api-jwt-auth/"
-  },
-  "config": {
-      "vendor-dir": "includes/vendor"
   },
   "require": {
       "php": ">=5.3",
