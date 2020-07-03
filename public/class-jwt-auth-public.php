@@ -64,7 +64,7 @@ class Jwt_Auth_Public
     {
         $this->plugin_name = $plugin_name;
         $this->version = $version;
-        $this->namespace = $this->plugin_name.'/v'.intval($this->version);
+        $this->namespace = $this->plugin_name . '/v' . intval($this->version);
     }
 
     /**
@@ -72,10 +72,10 @@ class Jwt_Auth_Public
      */
     public function add_api_routes()
     {
-        register_rest_route($this->namespace, 'token', [
+        register_rest_route($this->namespace, 'token', array(
             'methods' => 'POST',
             'callback' => array($this, 'generate_token'),
-        ]);
+        ));
 
         register_rest_route($this->namespace, 'token/validate', array(
             'methods' => 'POST',
@@ -123,9 +123,10 @@ class Jwt_Auth_Public
 
         /** If the authentication fails return a error*/
         if (is_wp_error($user)) {
+            $error_code = $user->get_error_code();
             return new WP_Error(
-                'jwt_auth_failed',
-                __('Invalid Credentials.', 'wp-api-jwt-auth'),
+                '[jwt_auth] ' . $error_code,
+                $user->get_error_message($error_code),
                 array(
                     'status' => 403,
                 )
@@ -150,7 +151,7 @@ class Jwt_Auth_Public
         );
 
         /** Let the user modify the token data before the sign. */
-        $token = JWT::encode(apply_filters('jwt_auth_token_before_sign', $token), $secret_key);
+        $token = JWT::encode(apply_filters('jwt_auth_token_before_sign', $token, $user), $secret_key);
 
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
@@ -174,6 +175,19 @@ class Jwt_Auth_Public
      */
     public function determine_current_user($user)
     {
+        /**
+         * This hook only should run on the REST API requests to determine
+         * if the user in the Token (if any) is valid, for any other
+         * normal call ex. wp-admin/.* return the user.
+         *
+         * @since 1.2.3
+         **/
+        $rest_api_slug = rest_get_url_prefix();
+        $valid_api_uri = strpos($_SERVER['REQUEST_URI'], $rest_api_slug);
+        if (!$valid_api_uri) {
+            return $user;
+        }
+
         /*
          * if the request URI is for validate the token don't do anything,
          * this avoid double calls to the validate_token function.
@@ -204,7 +218,7 @@ class Jwt_Auth_Public
      *
      * @param bool $output
      *
-     * @return WP_Error | Object
+     * @return WP_Error | Object | Array
      */
     public function validate_token($output = true)
     {
@@ -212,11 +226,17 @@ class Jwt_Auth_Public
          * Looking for the HTTP_AUTHORIZATION header, if not present just
          * return the user.
          */
-        $auth = isset($_SERVER['HTTP_AUTHORIZATION']) ?  $_SERVER['HTTP_AUTHORIZATION'] : false;
+        $auth = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : false;
+
+        /* Double check for different auth header string (server dependent) */
+        if (!$auth) {
+            $auth = isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION']) ? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] : false;
+        }
+
         if (!$auth) {
             return new WP_Error(
                 'jwt_auth_no_auth_header',
-                __('Authorization header not found.', 'wp-api-jwt-auth'),
+                'Authorization header not found.',
                 array(
                     'status' => 403,
                 )
@@ -231,7 +251,7 @@ class Jwt_Auth_Public
         if (!$token) {
             return new WP_Error(
                 'jwt_auth_bad_auth_header',
-                __('Authorization header malformed.', 'wp-api-jwt-auth'),
+                'Authorization header malformed.',
                 array(
                     'status' => 403,
                 )
@@ -243,7 +263,7 @@ class Jwt_Auth_Public
         if (!$secret_key) {
             return new WP_Error(
                 'jwt_auth_bad_config',
-                __('JWT is not configurated properly, please contact the admin', 'wp-api-jwt-auth'),
+                'JWT is not configurated properly, please contact the admin',
                 array(
                     'status' => 403,
                 )
@@ -258,7 +278,7 @@ class Jwt_Auth_Public
                 /** The iss do not match, return error */
                 return new WP_Error(
                     'jwt_auth_bad_iss',
-                    __('The iss do not match with this server', 'wp-api-jwt-auth'),
+                    'The iss do not match with this server',
                     array(
                         'status' => 403,
                     )
@@ -269,7 +289,7 @@ class Jwt_Auth_Public
                 /** No user id in the token, abort!! */
                 return new WP_Error(
                     'jwt_auth_bad_request',
-                    __('User ID not found in the token', 'wp-api-jwt-auth'),
+                    'User ID not found in the token',
                     array(
                         'status' => 403,
                     )
@@ -280,22 +300,22 @@ class Jwt_Auth_Public
                 return $token;
             }
             /** If the output is true return an answer to the request to show it */
-             return array(
-                 'code' => 'jwt_auth_valid_token',
-                 'data' => array(
-                     'status' => 200,
-                 ),
-             );
-         } catch (Exception $e) {
+            return array(
+                'code' => 'jwt_auth_valid_token',
+                'data' => array(
+                    'status' => 200,
+                ),
+            );
+        } catch (Exception $e) {
             /** Something is wrong trying to decode the token, send back the error */
-             return new WP_Error(
-                 'jwt_auth_invalid_token',
-                 $e->getMessage(),
-                 array(
-                     'status' => 403,
-                 )
-             );
-         }
+            return new WP_Error(
+                'jwt_auth_invalid_token',
+                $e->getMessage(),
+                array(
+                    'status' => 403,
+                )
+            );
+        }
     }
 
     /**
