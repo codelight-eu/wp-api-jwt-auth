@@ -1,6 +1,6 @@
 <?php
 
-/** Requiere the JWT library. */
+/** Require the JWT library. */
 use \Firebase\JWT\JWT;
 
 /**
@@ -53,6 +53,20 @@ class Jwt_Auth_Public
     private $jwt_error = null;
 
     /**
+     * JWT refresh token key for cookie and user's meta key
+     *
+     * @var string
+     */
+    private $refreshTokenKey = 'jwt_refresh_token';
+
+    /**
+     * JWT token key for user's meta key
+     *
+     * @var string
+     */
+    private $tokenExpirationKey = 'jwt_token_expire';
+
+    /**
      * Initialize the class and set its properties.
      *
      * @since    1.0.0
@@ -81,10 +95,15 @@ class Jwt_Auth_Public
             'methods' => 'POST',
             'callback' => array($this, 'validate_token'),
         ));
+
+        register_rest_route($this->namespace, 'token/refresh', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'refresh_token'),
+        ));
     }
 
     /**
-     * Add CORs suppot to the request.
+     * Add CORs support to the request.
      */
     public function add_cors_support()
     {
@@ -100,24 +119,13 @@ class Jwt_Auth_Public
      *
      * @param [type] $request [description]
      *
-     * @return [type] [description]
+     * @return mixed|void|WP_Error [type] [description]
      */
     public function generate_token($request)
     {
-        $secret_key = defined('JWT_AUTH_SECRET_KEY') ? JWT_AUTH_SECRET_KEY : false;
         $username = $request->get_param('username');
         $password = $request->get_param('password');
 
-        /** First thing, check the secret key if not exist return a error*/
-        if (!$secret_key) {
-            return new WP_Error(
-                'jwt_auth_bad_config',
-                __('JWT is not configurated properly, please contact the admin', 'wp-api-jwt-auth'),
-                array(
-                    'status' => 403,
-                )
-            );
-        }
         /** Try to authenticate the user with the passed credentials*/
         $user = wp_authenticate($username, $password);
 
@@ -133,16 +141,38 @@ class Jwt_Auth_Public
             );
         }
 
+        return $this->generateJwt($user);
+    }
+
+    /**
+     * @param WP_User $user
+     * @return mixed|void|WP_Error
+     */
+    private function generateJwt(WP_User $user)
+    {
+        $secret_key = defined('JWT_AUTH_SECRET_KEY') ? JWT_AUTH_SECRET_KEY : false;
+
+        /** First thing, check the secret key if not exist return a error*/
+        if (!$secret_key) {
+            return new WP_Error(
+                'jwt_auth_bad_config',
+                __('JWT is not configured properly, please contact the admin', 'wp-api-jwt-auth'),
+                array(
+                    'status' => 403,
+                )
+            );
+        }
+
         /** Valid credentials, the user exists create the according Token */
-        $issuedAt = time();
+        $issuedAt  = time();
         $notBefore = apply_filters('jwt_auth_not_before', $issuedAt, $issuedAt);
-        $expire = apply_filters('jwt_auth_expire', $issuedAt + (DAY_IN_SECONDS * 7), $issuedAt);
+        $expire    = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 1), $issuedAt); // TODO - time
 
         $token = array(
-            'iss' => get_bloginfo('url'),
-            'iat' => $issuedAt,
-            'nbf' => $notBefore,
-            'exp' => $expire,
+            'iss'  => get_bloginfo('url'),
+            'iat'  => $issuedAt,
+            'nbf'  => $notBefore,
+            'exp'  => $expire,
             'data' => array(
                 'user' => array(
                     'id' => $user->data->ID,
@@ -153,11 +183,17 @@ class Jwt_Auth_Public
         /** Let the user modify the token data before the sign. */
         $token = JWT::encode(apply_filters('jwt_auth_token_before_sign', $token, $user), $secret_key);
 
+        $refreshToken = bin2hex(random_bytes(78));
+        update_user_meta($user->data->ID, $this->refreshTokenKey, $refreshToken);
+        update_user_meta($user->data->ID, $this->tokenExpirationKey, $expire);
+        setcookie($this->refreshTokenKey, $refreshToken, NULL, COOKIEPATH, COOKIE_DOMAIN, NULL, TRUE);
+
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
-            'token' => $token,
-            'user_email' => $user->data->user_email,
-            'user_nicename' => $user->data->user_nicename,
+            'token'             => $token,
+            'exp'               => $expire,
+            'user_email'        => $user->data->user_email,
+            'user_nicename'     => $user->data->user_nicename,
             'user_display_name' => $user->data->display_name,
         );
 
@@ -323,6 +359,7 @@ class Jwt_Auth_Public
      * send it, if there is no error just continue with the current request.
      *
      * @param $request
+     * @return WP_Error|null
      */
     public function rest_pre_dispatch($request)
     {
@@ -330,5 +367,72 @@ class Jwt_Auth_Public
             return $this->jwt_error;
         }
         return $request;
+    }
+
+    /**
+     * @param $request
+     * @return mixed|void|WP_Error
+     */
+    public function refresh_token($request)
+    {
+        $user = $this->getUserByUserCookieToken();
+
+        if (is_wp_error($user)) {
+            return $user;
+        }
+
+        $expirationTime = get_user_meta($user->ID, $this->tokenExpirationKey, true);
+
+        if ($expirationTime < time()) {
+            return new WP_Error(
+                'jwt_auth_refresh_token_expired',
+                'The Refresh Token has been expired.',
+                array(
+                    'status' => 404,
+                )
+            );
+        }
+
+        return $this->generateJwt($user);
+    }
+
+    /**
+     * Get User from cookie token.
+     *
+     * @return bool|WP_Error|WP_User
+     */
+    private function getUserByUserCookieToken()
+    {
+        if (empty($_COOKIE[$this->refreshTokenKey])) {
+            return new WP_Error(
+                'jwt_auth_refresh_token_not_found',
+                'The Refresh Token not found.',
+                array(
+                    'status' => 404,
+                )
+            );
+        }
+
+        $users = get_users(
+            array(
+                'meta_key'    => $this->refreshTokenKey,
+                'meta_value'  => $_COOKIE[$this->refreshTokenKey],
+                'number'      => 1,
+                'count_total' => false
+            )
+        );
+
+        if (!count($users)) {
+            return new WP_Error(
+                'jwt_auth_refresh_token_not_found',
+                'The Refresh Token not found.',
+                array(
+                    'status' => 404,
+                )
+            );
+        }
+
+        $user = reset($users);
+        return get_user_by('ID', $user->ID);
     }
 }
