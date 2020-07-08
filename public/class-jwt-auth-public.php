@@ -193,7 +193,7 @@ class Jwt_Auth_Public
         update_user_meta($user->data->ID, $this->refreshTokenKey, $refreshToken);
         update_user_meta($user->data->ID, $this->tokenExpirationKey, $cookieExpire);
 
-        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, TRUE, TRUE);
+        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, false, true);
 
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
