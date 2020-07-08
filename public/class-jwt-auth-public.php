@@ -193,7 +193,7 @@ class Jwt_Auth_Public
         update_user_meta($user->data->ID, $this->refreshTokenKey, $refreshToken);
         update_user_meta($user->data->ID, $this->tokenExpirationKey, $cookieExpire);
 
-        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, NULL, TRUE);
+        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, TRUE, TRUE);
 
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
@@ -430,8 +430,8 @@ class Jwt_Auth_Public
 
         if (!count($users)) {
             return new WP_Error(
-                'jwt_auth_refresh_token_not_found',
-                'The Refresh Token not found.',
+                'jwt_auth_user_not_found',
+                'The user not found.',
                 array(
                     'status' => 404,
                 )
