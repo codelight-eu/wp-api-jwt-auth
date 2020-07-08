@@ -389,7 +389,7 @@ class Jwt_Auth_Public
                 'jwt_auth_refresh_token_expired',
                 'The Refresh Token has been expired.',
                 array(
-                    'status' => 404,
+                    'status' => 403,
                 )
             );
         }
