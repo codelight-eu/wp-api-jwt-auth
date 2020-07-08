@@ -2,6 +2,7 @@
 
 /** Require the JWT library. */
 
+use Codelight\TravelSimRestApi\Helpers;
 use Firebase\JWT\JWT;
 
 /**
@@ -167,7 +168,8 @@ class Jwt_Auth_Public
         /** Valid credentials, the user exists create the according Token */
         $issuedAt  = time();
         $notBefore = apply_filters('jwt_auth_not_before', $issuedAt, $issuedAt);
-        $expire    = apply_filters('jwt_auth_expire', $issuedAt + (DAY_IN_SECONDS * 1), $issuedAt);
+        //$expire    = apply_filters('jwt_auth_expire', $issuedAt + (DAY_IN_SECONDS * 1), $issuedAt);
+        $expire = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 1), $issuedAt); // TODO - test
 
         $token = array(
             'iss'  => get_bloginfo('url'),
@@ -186,11 +188,12 @@ class Jwt_Auth_Public
 
         $refreshToken = bin2hex(random_bytes(78));
         $cookieExpire = time() + 60 * 60 * 24 * 60;
+        $cookieDomain = $_SERVER['SERVER_NAME'];
 
         update_user_meta($user->data->ID, $this->refreshTokenKey, $refreshToken);
         update_user_meta($user->data->ID, $this->tokenExpirationKey, $cookieExpire);
 
-        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, COOKIE_DOMAIN, NULL, TRUE);
+        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, NULL, TRUE);
 
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
