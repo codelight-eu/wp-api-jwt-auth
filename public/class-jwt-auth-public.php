@@ -70,16 +70,16 @@ class Jwt_Auth_Public
     /**
      * Initialize the class and set its properties.
      *
+     * @param string $plugin_name The name of the plugin.
+     * @param string $version The version of this plugin.
      * @since    1.0.0
      *
-     * @param string $plugin_name The name of the plugin.
-     * @param string $version     The version of this plugin.
      */
     public function __construct($plugin_name, $version)
     {
         $this->plugin_name = $plugin_name;
-        $this->version = $version;
-        $this->namespace = $this->plugin_name . '/v' . intval($this->version);
+        $this->version     = $version;
+        $this->namespace   = $this->plugin_name . '/v' . intval($this->version);
     }
 
     /**
@@ -88,17 +88,17 @@ class Jwt_Auth_Public
     public function add_api_routes()
     {
         register_rest_route($this->namespace, 'token', array(
-            'methods' => 'POST',
+            'methods'  => 'POST',
             'callback' => array($this, 'generate_token'),
         ));
 
         register_rest_route($this->namespace, 'token/validate', array(
-            'methods' => 'POST',
+            'methods'  => 'POST',
             'callback' => array($this, 'validate_token'),
         ));
 
         register_rest_route($this->namespace, 'token/refresh', array(
-            'methods' => 'POST',
+            'methods'  => 'POST',
             'callback' => array($this, 'refresh_token'),
         ));
     }
@@ -185,9 +185,12 @@ class Jwt_Auth_Public
         $token = JWT::encode(apply_filters('jwt_auth_token_before_sign', $token, $user), $secret_key);
 
         $refreshToken = bin2hex(random_bytes(78));
+        $cookieExpire = time() + 60 * 60 * 24 * 60;
+
         update_user_meta($user->data->ID, $this->refreshTokenKey, $refreshToken);
-        update_user_meta($user->data->ID, $this->tokenExpirationKey, $expire);
-        setcookie($this->refreshTokenKey, $refreshToken, NULL, COOKIEPATH, COOKIE_DOMAIN, NULL, TRUE);
+        update_user_meta($user->data->ID, $this->tokenExpirationKey, $cookieExpire);
+
+        setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, COOKIE_DOMAIN, NULL, TRUE);
 
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
@@ -382,8 +385,7 @@ class Jwt_Auth_Public
             return $user;
         }
 
-        $expirationTime = get_user_meta($user->ID, $this->tokenExpirationKey, true);
-
+        /*$expirationTime = get_user_meta($user->ID, $this->tokenExpirationKey, true);
         if ($expirationTime < time()) {
             return new WP_Error(
                 'jwt_auth_refresh_token_expired',
@@ -392,7 +394,7 @@ class Jwt_Auth_Public
                     'status' => 403,
                 )
             );
-        }
+        }*/
 
         return $this->generateJwt($user);
     }
