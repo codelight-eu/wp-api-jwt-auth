@@ -135,7 +135,7 @@ class Jwt_Auth_Public
         if (is_wp_error($user)) {
             $error_code = $user->get_error_code();
             return new WP_Error(
-                '[jwt_auth] ' . $error_code,
+                'rest_incorrect_password',
                 $user->get_error_message($error_code),
                 array(
                     'status' => 403,
