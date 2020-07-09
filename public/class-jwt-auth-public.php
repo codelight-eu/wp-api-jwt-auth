@@ -2,7 +2,6 @@
 
 /** Require the JWT library. */
 
-use Codelight\TravelSimRestApi\Helpers;
 use Firebase\JWT\JWT;
 
 /**
@@ -60,14 +59,7 @@ class Jwt_Auth_Public
      * @var string
      */
     private $refreshTokenKey = 'jwt_refresh_token';
-
-    /**
-     * JWT token key for user's meta key
-     *
-     * @var string
-     */
-    private $tokenExpirationKey = 'jwt_token_expire';
-
+    
     /**
      * Initialize the class and set its properties.
      *
@@ -168,7 +160,7 @@ class Jwt_Auth_Public
         /** Valid credentials, the user exists create the according Token */
         $issuedAt  = time();
         $notBefore = apply_filters('jwt_auth_not_before', $issuedAt, $issuedAt);
-        $expire = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 15), $issuedAt);
+        $expire    = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 15), $issuedAt);
 
         $token = array(
             'iss'  => get_bloginfo('url'),
@@ -189,10 +181,8 @@ class Jwt_Auth_Public
         $cookieExpire = time() + 60 * 60 * 24 * 60;
         $cookieDomain = $_SERVER['SERVER_NAME'];
 
-        update_user_meta($user->data->ID, $this->refreshTokenKey, $refreshToken);
-        update_user_meta($user->data->ID, $this->tokenExpirationKey, $cookieExpire);
-
         setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, false, true);
+        update_user_meta($user->data->ID, $this->getRefreshCookieMetaName(), $refreshToken);
 
         /** The token is signed, now create the object with no sensible user data to the client*/
         $data = array(
@@ -205,6 +195,12 @@ class Jwt_Auth_Public
 
         /** Let the user modify the data before send it back */
         return apply_filters('jwt_auth_token_before_dispatch', $data, $user);
+    }
+
+    private function getRefreshCookieMetaName()
+    {
+        $computerId = $_SERVER['HTTP_USER_AGENT'] . $_SERVER['LOCAL_ADDR'] . $_SERVER['LOCAL_PORT'] . $_SERVER['REMOTE_ADDR'];
+        return $this->refreshTokenKey . '_' . md5($computerId);
     }
 
     /**
@@ -387,18 +383,6 @@ class Jwt_Auth_Public
             return $user;
         }
 
-        // The refresh token will be expire by cookie.
-        /*$expirationTime = get_user_meta($user->ID, $this->tokenExpirationKey, true);
-        if ($expirationTime < time()) {
-            return new WP_Error(
-                'jwt_auth_refresh_token_expired',
-                'The Refresh Token has been expired.',
-                array(
-                    'status' => 403,
-                )
-            );
-        }*/
-
         return $this->generateJwt($user);
     }
 
@@ -421,7 +405,7 @@ class Jwt_Auth_Public
 
         $users = get_users(
             array(
-                'meta_key'    => $this->refreshTokenKey,
+                'meta_key'    => $this->getRefreshCookieMetaName(),
                 'meta_value'  => $_COOKIE[$this->refreshTokenKey],
                 'number'      => 1,
                 'count_total' => false
