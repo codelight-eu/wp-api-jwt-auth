@@ -168,8 +168,7 @@ class Jwt_Auth_Public
         /** Valid credentials, the user exists create the according Token */
         $issuedAt  = time();
         $notBefore = apply_filters('jwt_auth_not_before', $issuedAt, $issuedAt);
-        //$expire    = apply_filters('jwt_auth_expire', $issuedAt + (DAY_IN_SECONDS * 1), $issuedAt);
-        $expire = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 1), $issuedAt); // TODO - test
+        $expire = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 15), $issuedAt);
 
         $token = array(
             'iss'  => get_bloginfo('url'),
@@ -388,6 +387,7 @@ class Jwt_Auth_Public
             return $user;
         }
 
+        // The refresh token will be expire by cookie.
         /*$expirationTime = get_user_meta($user->ID, $this->tokenExpirationKey, true);
         if ($expirationTime < time()) {
             return new WP_Error(
