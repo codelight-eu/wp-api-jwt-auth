@@ -59,7 +59,7 @@ class Jwt_Auth_Public
      * @var string
      */
     private $refreshTokenKey = 'jwt_refresh_token';
-    
+
     /**
      * Initialize the class and set its properties.
      *
@@ -160,7 +160,7 @@ class Jwt_Auth_Public
         /** Valid credentials, the user exists create the according Token */
         $issuedAt  = time();
         $notBefore = apply_filters('jwt_auth_not_before', $issuedAt, $issuedAt);
-        $expire    = apply_filters('jwt_auth_expire', $issuedAt + (MINUTE_IN_SECONDS * 15), $issuedAt);
+        $expire    = apply_filters('jwt_auth_expire', $issuedAt + (YEAR_IN_SECONDS * 15), $issuedAt);
 
         $token = array(
             'iss'  => get_bloginfo('url'),
@@ -368,6 +368,17 @@ class Jwt_Auth_Public
         if (is_wp_error($this->jwt_error)) {
             return $this->jwt_error;
         }
+        return $request;
+    }
+
+    public function rest_pre_dispatch_overwrite($request)
+    {
+        if (is_wp_error($request)) {
+            if ($request->get_error_data('jwt_auth_bad_auth_header')) {
+                return NULL;
+            }
+        }
+
         return $request;
     }
 
