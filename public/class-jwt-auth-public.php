@@ -180,6 +180,7 @@ class Jwt_Auth_Public
         $refreshToken = bin2hex(random_bytes(78));
         $cookieExpire = time() + 60 * 60 * 24 * 60;
         $cookieDomain = $_SERVER['SERVER_NAME'];
+        $cookieDomain = preg_replace('/^www\./', '', $cookieDomain);
 
         setcookie($this->refreshTokenKey, $refreshToken, $cookieExpire, COOKIEPATH, $cookieDomain, false, true);
         update_user_meta($user->data->ID, $this->getRefreshCookieMetaName(), $refreshToken);
