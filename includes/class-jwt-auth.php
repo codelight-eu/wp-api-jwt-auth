@@ -152,6 +152,10 @@ class Jwt_Auth
      */
     public function run()
     {
+        if (defined('JWT_AUTH_BLACKLIST_ENDPOINTS') and in_array($_SERVER['REQUEST_URI'], constant('JWT_AUTH_BLACKLIST_ENDPOINTS'))) {
+            return;
+        }
+
         $this->loader->run();
     }
 
