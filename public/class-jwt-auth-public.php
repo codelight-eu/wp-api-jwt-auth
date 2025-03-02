@@ -175,7 +175,11 @@ class Jwt_Auth_Public
         );
 
         /** Let the user modify the token data before the sign. */
-        $token = JWT::encode(apply_filters('jwt_auth_token_before_sign', $token, $user), $secret_key);
+        $token = JWT::encode(
+            apply_filters('jwt_auth_token_before_sign', $token, $user),
+            $secret_key,
+            'HS256'
+        );
 
         $refreshToken = bin2hex(random_bytes(78));
         $cookieExpire = time() + 60 * 60 * 24 * 60;
@@ -311,7 +315,7 @@ class Jwt_Auth_Public
 
         /** Try to decode the token */
         try {
-            $token = JWT::decode($token, $secret_key, array('HS256'));
+            $token = JWT::decode($token, new \Firebase\JWT\Key($secret_key, 'HS256'));
             /** The Token is decoded now validate the iss */
             if ($token->iss != get_bloginfo('url')) {
                 /** The iss do not match, return error */
